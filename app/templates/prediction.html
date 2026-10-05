@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+{% from 'partials/forms.html' import feature_field %}
+
+{% block title %}Prediction - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% set has_result = prediction_result is defined %}
+{% set flagged = has_result and prediction_result.flagged %}
+{% set score = prediction_result.risk_score if has_result else 0 %}
+
+{% block content %}
+<div class="container page">
+    <header class="page-header">
+        <div class="page-header__text">
+            <h1 class="title" data-reveal>Check an application</h1>
+            <p class="lead" data-reveal>Fill in the twenty details the model uses. It returns a verdict and the risk score behind it.</p>
+        </div>
+        <div class="cluster" data-examples data-reveal hidden>
+            <span class="small muted">Load an example</span>
+            {% for example in examples %}
+            <button type="button" class="button button--secondary button--sm" data-example='{{ example["values"] | tojson }}'>{{ example.label }}</button>
+            {% endfor %}
+        </div>
+    </header>
+
+    <div class="check">
+        <form method="POST" action="{{ url_for('prediction.prediction') }}#verdict" class="check__form" data-check-form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="alert alert--risk" role="alert" tabindex="-1" data-error-summary{% if not errors %} hidden{% endif %}>
+                {{ icon('alert-circle') }}
+                <div class="alert__body">
+                    <p class="alert__title" data-error-title>
+                        {%- if errors -%}
+                        Fix {{ errors | length }} {{ 'field' if errors | length == 1 else 'fields' }} to get a verdict
+                        {%- endif -%}
+                    </p>
+                    <ul class="alert__list" data-error-list>
+                        {% for item in error_list | default([]) %}
+                        <li><a href="#field-{{ item.name }}">{{ item.message }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            {% for group in groups %}
+            <section class="card fieldset" role="group" aria-labelledby="group-{{ group.key }}" data-reveal>
+                <div class="card__titles">
+                    <h2 class="heading" id="group-{{ group.key }}">{{ group.title }}</h2>
+                    <p class="card__description">{{ group.description }}</p>
+                </div>
+                <div class="fieldset__fields">
+                    {% for feature in group.features %}
+                    {{ feature_field(feature, features.get(feature.name, ''), errors.get(feature.name)) }}
+                    {% endfor %}
+                </div>
+            </section>
+            {% endfor %}
+
+            <div class="check__actions" data-reveal>
+                <button type="submit" class="button button--lg">{{ icon('scan') }}<span>Check application</span></button>
+                <button type="reset" class="button button--ghost button--lg" data-clear hidden><span>Clear form</span></button>
+            </div>
+        </form>
+
+        <aside class="check__aside" id="verdict">
+            <section class="card slip" aria-labelledby="slip-heading" data-slip data-reveal
+                     data-state="{{ 'result' if has_result else 'idle' }}"
+                     {%- if has_result %} data-autoplay data-verdict="{{ 'flagged' if flagged else 'cleared' }}" data-score="{{ score }}"{% endif %}>
+                <div class="rule-engraved" aria-hidden="true"></div>
+                <h2 class="subheading" id="slip-heading">Verdict</h2>
+
+                <div class="gauge" data-gauge style="--_value: {{ score / 100 }}">
+                    <svg class="gauge__svg" viewBox="0 -6 200 112" aria-hidden="true" focusable="false">
+                        <path class="gauge__ticks gauge__ticks--minor" d="M6 100 A94 94 0 0 1 194 100" pathLength="100"/>
+                        <path class="gauge__ticks gauge__ticks--major" d="M4 100 A96 96 0 0 1 196 100" pathLength="100"/>
+                        <path class="gauge__track" d="M20 100 A80 80 0 0 1 180 100"/>
+                        <path class="gauge__value" d="M20 100 A80 80 0 0 1 180 100" pathLength="1"/>
+                        <line class="gauge__threshold" x1="100" y1="10" x2="100" y2="30"/>
+                        <g class="gauge__needle">
+                            <line x1="100" y1="100" x2="30" y2="100"/>
+                            <circle cx="100" cy="100" r="5"/>
+                        </g>
+                    </svg>
+                    <div class="gauge__readout">
+                        <span class="gauge__number" data-gauge-number>{{ '%.1f' | format(score) if has_result else '0' }}</span>
+                        <span class="gauge__label">risk score out of 100; flagged when over 50</span>
+                    </div>
+                </div>
+
+                <div class="slip__verdict">
+                    <span class="stamp{{ ' stamp--risk' if flagged }}" data-stamp>{{ 'Flagged' if flagged else 'Cleared' }}</span>
+                </div>
+
+                <div class="slip__message">
+                    {% if has_result %}
+                    <p class="subheading" data-slip-title>{{ 'Flagged as high risk' if flagged else 'Looks low risk' }}</p>
+                    <p data-slip-text>The model scores this application {{ '%.1f' | format(score) }} out of 100, {{ 'over' if flagged else 'under' }} its line of 50.</p>
+                    {% else %}
+                    <p class="subheading" data-slip-title>No verdict yet</p>
+                    <p data-slip-text>Fill in the form, then choose Check application.</p>
+                    {% endif %}
+                </div>
+
+                <div class="alert alert--risk" role="alert" data-slip-problem{% if problem is not defined %} hidden{% endif %}>
+                    {{ icon('alert-circle') }}
+                    <p data-slip-problem-text>{{ problem | default('') }}</p>
+                </div>
+            </section>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/predict.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,396 @@
+/* ==========================================================================
+   Motion
+
+   - Only transform, opacity, clip-path and stroke-dashoffset animate, so
+     nothing reflows while it moves.
+   - Arriving uses --ease-out; leaving uses --ease-in and takes about 60% as
+     long.
+   - Each page has one orchestrated moment on load. Everything else answers
+     something the person did.
+   - Anything that starts hidden is gated on html.js, so a page with no
+     script is complete and still.
+   - prefers-reduced-motion: every element arrives in its final state.
+
+   Timings and curves are tokens (tokens.css, "Motion").
+   ========================================================================== */
+
+/* --- Keyframes ----------------------------------------------------------- */
+@keyframes spin {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--distance-md));
+  }
+}
+
+@keyframes sink-out {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--distance-sm) * -1));
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes pulse-soft {
+  from { opacity: 1; }
+  to { opacity: 0.45; }
+}
+
+/* A value that was filled in for the person lights up, then settles. */
+@keyframes fill-flash {
+  from { background-color: var(--color-accent-subtle); }
+}
+
+/* The stamp comes down fast, hits, and rebounds a hair. */
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(2.1);
+    animation-timing-function: var(--ease-thump);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.93);
+    animation-timing-function: var(--ease-out);
+  }
+  78% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* What the stamp lands on takes the knock. */
+@keyframes thump {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(3px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes beam-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translateX(360%);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--distance-lg));
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(var(--distance-md)) scale(0.98);
+  }
+}
+
+@keyframes toast-timer {
+  to { transform: scaleX(0); }
+}
+
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--theme-x, 50%) var(--theme-y, 0)); }
+  to { clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 0)); }
+}
+
+/* --- Reveal on entering the viewport -------------------------------------- */
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(var(--distance-md));
+}
+
+.js [data-reveal='fade'] {
+  transform: none;
+}
+
+.js [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--duration-slow) var(--ease-out) var(--reveal-delay, 0ms),
+    transform var(--duration-slow) var(--ease-out) var(--reveal-delay, 0ms);
+}
+
+/* Marks that grow from their baseline once their container is revealed. */
+.js [data-grow] {
+  --_grow: 0;
+}
+
+.js .is-revealed [data-grow],
+.js [data-grow].is-revealed {
+  --_grow: 1;
+}
+
+.bars__bar {
+  transform: scaleX(var(--_grow, 1));
+  transition:
+    transform var(--duration-slower) var(--ease-out) calc(var(--i, 0) * 45ms + 120ms),
+    filter var(--duration-fast) var(--ease-standard);
+}
+
+.meter__fill {
+  transform: scaleX(calc(var(--value, 0) * var(--_grow, 1)));
+  transition: transform var(--duration-slower) var(--ease-out) calc(var(--i, 0) * 30ms + 120ms);
+}
+
+.share {
+  clip-path: inset(0 calc((1 - var(--_grow, 1)) * 100%) 0 0 round var(--radius-sm));
+  transition: clip-path var(--duration-slower) var(--ease-out) 120ms;
+}
+
+/* --- Guilloche: the lines are drawn, ring by ring -------------------------- */
+.js .guilloche[data-draw] .guilloche__line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.js .guilloche[data-draw].is-drawn .guilloche__line {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--duration-draw) var(--ease-in-out) calc(var(--i, 0) * 70ms + var(--_band-delay, 0ms));
+}
+
+.guilloche__band--middle { --_band-delay: 160ms; }
+.guilloche__band--inner { --_band-delay: 320ms; }
+
+/* --- Home: the inspection sequence ---------------------------------------- */
+/* Before the script starts the sequence, hold the scene back. */
+.js .hero__visual:not(.is-playing, .is-done) :is(.paycard, .ledger) {
+  opacity: 0;
+}
+
+.hero__visual.is-playing .paycard {
+  animation: rise-in var(--duration-slower) var(--ease-out) 250ms both;
+}
+
+.hero__visual.is-playing .ledger {
+  animation:
+    rise-in var(--duration-slower) var(--ease-out) 420ms both,
+    thump 240ms var(--ease-out) 2430ms;
+}
+
+.hero__visual.is-playing .ledger__row {
+  animation: fade-in var(--duration-slow) var(--ease-out) calc(820ms + var(--i, 0) * 70ms) both;
+}
+
+.hero__visual.is-playing .ledger__beam {
+  animation: beam-sweep 1000ms var(--ease-in-out) 1200ms both;
+}
+
+.hero__visual.is-playing .ledger__verdict .icon {
+  animation: pop-in var(--duration-slow) var(--ease-spring) calc(1420ms + var(--i, 0) * 170ms) both;
+}
+
+.hero__visual.is-playing .ledger__verdict .stamp {
+  animation: stamp-in 340ms 2200ms both;
+}
+
+/* The flagged row only turns red once the stamp has landed. */
+.hero__visual.is-playing .ledger__row--risk::before {
+  animation: fade-in var(--duration-slow) var(--ease-out) 2430ms both;
+}
+
+.hero__visual.is-playing .ledger__row--risk .ledger__amount {
+  animation: ink-change var(--duration-base) var(--ease-out) 2430ms both;
+}
+
+@keyframes ink-change {
+  from { color: var(--color-text); }
+}
+
+/* --- Check a transaction: the verdict ------------------------------------- */
+.slip .stamp {
+  visibility: hidden;
+}
+
+.slip[data-state='result'] .stamp {
+  visibility: visible;
+}
+
+.slip.is-stamping .stamp {
+  animation: stamp-in 340ms both;
+}
+
+.slip.is-stamping {
+  animation: thump 240ms var(--ease-out) 190ms;
+}
+
+.slip__message {
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.slip[data-state='busy'] .slip__message {
+  opacity: 0.5;
+}
+
+.slip.is-settling .slip__message {
+  animation: rise-in var(--duration-slow) var(--ease-out) both;
+}
+
+/* Before the script replays a verdict the server rendered, hold it back. */
+.js .slip[data-autoplay] :is(.stamp, .gauge__number) {
+  visibility: hidden;
+}
+
+.js .slip[data-autoplay] .gauge {
+  --_value: 0 !important;
+}
+
+/* --- Upload: the chosen file arrives ------------------------------------------ */
+.file-chip.is-arriving {
+  animation: rise-in var(--duration-base) var(--ease-out) both;
+}
+
+/* --- Toasts ----------------------------------------------------------------- */
+.js .toast {
+  animation: toast-in var(--duration-base) var(--ease-out) both;
+}
+
+.js .toast.is-leaving {
+  animation: toast-out var(--duration-fast) var(--ease-in) both;
+}
+
+.js .toast__timer {
+  animation: toast-timer var(--toast-life, 5s) linear both;
+}
+
+.toast[data-paused] .toast__timer {
+  animation-play-state: paused;
+}
+
+/* --- Content swapped in place (chart to table, one test to the other) ------- */
+.is-switching {
+  animation: fade-in var(--duration-base) var(--ease-out) both;
+}
+
+/* --- Rows that filter in and out ------------------------------------------- */
+.js [data-row].is-entering {
+  animation: fade-in var(--duration-base) var(--ease-out) calc(var(--i, 0) * 18ms) both;
+}
+
+/* --- Numbers that are changing ---------------------------------------------- */
+[data-count] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Moving between pages ---------------------------------------------------- */
+@view-transition {
+  navigation: auto;
+}
+
+.site-header {
+  view-transition-name: site-header;
+}
+
+.nav-link__indicator {
+  view-transition-name: nav-indicator;
+}
+
+/* A plain cross-fade: the new page's own entrance supplies the movement. */
+::view-transition-old(root) {
+  animation: fade-out var(--duration-fast) var(--ease-in) both;
+}
+
+::view-transition-new(root) {
+  animation: fade-in var(--duration-base) var(--ease-out) both;
+}
+
+/* The header holds still; only what is inside it changes. */
+::view-transition-group(site-header) {
+  animation-duration: var(--duration-base);
+}
+
+/* The underline travels from the page that was open to the one that is. */
+::view-transition-group(nav-indicator) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out);
+}
+
+/* Switching theme: the new colours spread from the toggle. */
+.theme-switching .site-header,
+.theme-switching .nav-link__indicator {
+  view-transition-name: none;
+}
+
+.theme-switching::view-transition-old(root) {
+  animation: none;
+}
+
+.theme-switching::view-transition-new(root) {
+  animation: theme-reveal var(--duration-slower) var(--ease-out) both;
+}
+
+.theme-toggle .icon {
+  transition:
+    transform var(--duration-slow) var(--ease-spring),
+    opacity var(--duration-fast) var(--ease-standard);
+}
+
+/* The toggle shows the theme in use: sun by day, moon by night. */
+:root[data-theme='dark'] .theme-toggle__sun,
+:root:not([data-theme='dark']) .theme-toggle__moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+
+/* --- Reduced motion ---------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* A busy indicator is information, not decoration: it keeps turning. */
+  .button[aria-busy='true']::after {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .toast__timer {
+    display: none;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

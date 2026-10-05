@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+
+{% block title %}Results - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% block content %}
+<div class="container page">
+    <header class="page-header">
+        <div class="page-header__text">
+            <h1 class="title" data-reveal>Results for {{ filename or 'your file' }}</h1>
+            <p class="lead" data-reveal>
+                {{ summary.scored | number }} of {{ summary.total | number }} {{ 'row' if summary.total == 1 else 'rows' }} scored.
+                {%- if summary.skipped %} {{ summary.skipped | number }} could not be read and {{ 'is' if summary.skipped == 1 else 'are' }} listed at the end with the reason.{% endif %}
+            </p>
+        </div>
+        <a href="{{ url_for('upload.upload') }}" class="button button--secondary" data-reveal>
+            {{ icon('upload') }}<span>Score another file</span>
+        </a>
+    </header>
+
+    <div class="stack">
+        <div class="stat-row" data-reveal>
+            <div class="stat stat--risk">
+                <span class="stat__label">Flagged as high risk</span>
+                <span class="stat__value" data-count="{{ summary.flagged }}">{{ summary.flagged | number }}</span>
+                <span class="stat__note">{{ summary.flagged_share | percent(1) }} of scored rows</span>
+            </div>
+            <div class="stat stat--clear">
+                <span class="stat__label">Cleared</span>
+                <span class="stat__value" data-count="{{ summary.cleared }}">{{ summary.cleared | number }}</span>
+                <span class="stat__note">{{ (1 - summary.flagged_share) | percent(1) if summary.scored else '0.0%' }} of scored rows</span>
+            </div>
+            {% if summary.labelled %}
+            <div class="stat">
+                <span class="stat__label">Agrees with your labels</span>
+                <span class="stat__value"><span data-count="{{ summary.agreement * 100 }}" data-decimals="1">{{ '%.1f' | format(summary.agreement * 100) }}</span><small>%</small></span>
+                <span class="stat__note">{{ summary.matched | number }} of {{ summary.labelled | number }} labelled rows</span>
+            </div>
+            {% endif %}
+            {% if summary.skipped %}
+            <div class="stat">
+                <span class="stat__label">Not scored</span>
+                <span class="stat__value" data-count="{{ summary.skipped }}">{{ summary.skipped | number }}</span>
+                <span class="stat__note">a value could not be read</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if summary.scored %}
+        <section class="card results__balance" aria-label="Verdict split" data-reveal>
+            <div class="share" data-grow role="img"
+                 aria-label="{{ summary.flagged | number }} flagged, {{ summary.cleared | number }} cleared">
+                {% if summary.flagged %}<span class="share__part share__part--risk" style="--share: {{ summary.flagged }}"></span>{% endif %}
+                {% if summary.cleared %}<span class="share__part" style="--share: {{ summary.cleared }}"></span>{% endif %}
+            </div>
+            <div class="legend">
+                <span class="legend__item"><span class="legend__swatch legend__swatch--risk"></span>Flagged, {{ summary.flagged | number }}</span>
+                <span class="legend__item"><span class="legend__swatch"></span>Cleared, {{ summary.cleared | number }}</span>
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="card card--flush" aria-labelledby="rows-heading" data-reveal data-results>
+            <div class="results__toolbar">
+                <div class="stack stack--xs">
+                    <h2 class="heading" id="rows-heading">Rows, riskiest first</h2>
+                    <p class="caption" data-results-status aria-live="polite">
+                        {% if total_rows > rows | length %}Listing the {{ rows | length | number }} highest-risk rows of {{ total_rows | number }}.{% endif %}
+                    </p>
+                </div>
+                <div class="chips" role="group" aria-label="Show" data-filters hidden>
+                    <button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>
+                    <button type="button" class="chip" data-filter="flagged" aria-pressed="false">Flagged</button>
+                    <button type="button" class="chip" data-filter="cleared" aria-pressed="false">Cleared</button>
+                    {% if summary.skipped %}<button type="button" class="chip" data-filter="skipped" aria-pressed="false">Not scored</button>{% endif %}
+                </div>
+            </div>
+
+            <div class="scroll-x" tabindex="0" role="region" aria-labelledby="rows-heading">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="is-number">Row</th>
+                            <th scope="col">Verdict</th>
+                            <th scope="col">Risk score</th>
+                            {% for column in shown_columns %}
+                            <th scope="col"{% if loop.index <= 3 %} class="is-number"{% endif %}>{{ column }}</th>
+                            {% endfor %}
+                            {% if summary.labelled %}<th scope="col">Your label</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody data-rows>
+                        {% for row in rows %}
+                        {% set kind = 'skipped' if row.error else ('flagged' if row.flagged else 'cleared') %}
+                        <tr data-row data-kind="{{ kind }}">
+                            <td class="is-number">{{ row.number }}</td>
+                            {% if row.error %}
+                            <td><span class="badge badge--caution">{{ icon('minus') }}Not scored</span></td>
+                            <td class="is-wrap">{{ row.error }}</td>
+                            {% else %}
+                            <td>
+                                {% if row.flagged %}
+                                <span class="badge badge--risk">{{ icon('flag') }}Flagged</span>
+                                {% else %}
+                                <span class="badge badge--clear">{{ icon('check') }}Cleared</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="meter{{ ' meter--risk' if row.flagged }}" style="--value: {{ '%.4f' | format(row.risk_score / 100) }}">
+                                    <span class="meter__track"><span class="meter__fill" data-grow></span></span>
+                                    <span class="meter__value">{{ '%.1f' | format(row.risk_score) }}</span>
+                                </div>
+                            </td>
+                            {% endif %}
+                            {% for cell in row.cells %}
+                            <td{% if loop.index <= 3 %} class="is-number"{% endif %}>{{ cell | number if cell is number else cell }}</td>
+                            {% endfor %}
+                            {% if summary.labelled %}
+                            {% set label = 'Bad' if row.actual == 1 else 'Good' %}
+                            <td>
+                                {% if row.actual is none %}
+                                <span class="row-status">None</span>
+                                {% elif row.error %}
+                                <span class="row-status">{{ label }}</span>
+                                {% elif row.matches %}
+                                <span class="row-status row-status--match">{{ icon('check', 'icon--sm') }}{{ label }}<span class="sr-only">, the model agrees</span></span>
+                                {% else %}
+                                <span class="row-status row-status--miss">{{ icon('x', 'icon--sm') }}{{ label }}<span class="sr-only">, the model disagrees</span></span>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="results__toolbar" data-more-bar hidden>
+                <p class="caption" data-more-status></p>
+                <button type="button" class="button button--secondary button--sm" data-more>Show more rows</button>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/results.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+
+{% block title %}{{ title }} - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% block content %}
+<div class="container error-page">
+    <div class="error-page__inner">
+        <p class="error-page__code" aria-hidden="true">{{ status }}</p>
+        <h1 class="title">{{ title }}</h1>
+        <p class="lead">{{ hint }}</p>
+        <div class="hero__actions">
+            <a href="{{ url_for('pages.index') }}" class="button">{{ icon('home') }}<span>Go to the home page</span></a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+{% from 'partials/guilloche.html' import rosette %}
+
+{% block title %}Sign in - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% block content %}
+<div class="auth">
+    {{ rosette('auth__rosette', draw=true) }}
+
+    <div class="container">
+        <div class="card auth__card" data-reveal>
+            <div class="stack stack--xs">
+                <h1 class="title">Sign in</h1>
+                <p class="muted">Use your analyst account to check applications and score files.</p>
+            </div>
+
+            {% if error %}
+            <div class="alert alert--risk" role="alert" id="login-error">
+                {{ icon('alert-circle') }}
+                <p>{{ error }}</p>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('auth.login') }}" class="auth__form" data-busy data-login-form>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="field">
+                    <label class="field__label" for="username">Username</label>
+                    <input class="input" type="text" id="username" name="username" value="{{ username }}"
+                           autocomplete="username" autocapitalize="none" spellcheck="false" required
+                           {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}
+                           {% if not username %}autofocus{% endif %}>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="password">Password</label>
+                    <div class="input-wrap">
+                        <input class="input input--with-action" type="password" id="password" name="password"
+                               autocomplete="current-password" required
+                               {% if error %}aria-invalid="true" aria-describedby="login-error"{% endif %}
+                               {% if username %}autofocus{% endif %}>
+                        <button type="button" class="input-wrap__action" data-password-toggle
+                                aria-label="Show password" aria-pressed="false" hidden>
+                            {{ icon('eye', 'icon--sm when-off') }}
+                            {{ icon('eye-off', 'icon--sm when-on') }}
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="button button--lg button--block">
+                    {{ icon('log-in') }}<span>Sign in</span>
+                </button>
+            </form>
+
+            {% if demo %}
+            <div class="alert alert--neutral">
+                {{ icon('info') }}
+                <div class="alert__body">
+                    <p class="alert__title">This is a demo install</p>
+                    <div class="auth__demo">
+                        <p>Username <code>{{ demo.username }}</code>, password <code>{{ demo.password }}</code></p>
+                        <button type="button" class="button button--secondary button--sm" data-demo-fill
+                                data-username="{{ demo.username }}" data-password="{{ demo.password }}" hidden>Fill these in</button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/login.js') }}"></script>
+{% endblock %}

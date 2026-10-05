@@ -1,0 +1,58 @@
+{% from 'partials/icons.html' import icon %}
+
+{# Renders one model input (app.utils.schema.Feature) as a labelled control
+   with its help text and a slot for its error. `value` is what was last
+   submitted; `error` is the message for this field, if any. #}
+{% macro feature_field(feature, value='', error=none) -%}
+{% set id = 'field-' ~ feature.name %}
+{% set described_by = ((id ~ '-help ') if feature.help else '') ~ id ~ '-error' %}
+
+{% if feature.kind == 'number' %}
+<div class="field" data-field="{{ feature.name }}">
+  <label class="field__label" for="{{ id }}">{{ feature.label }}</label>
+  <div class="input-wrap">
+    <input class="input{% if feature.unit %} input--with-suffix{% endif %}"
+           id="{{ id }}" name="{{ feature.name }}" type="number"
+           inputmode="{{ 'numeric' if feature.integer else 'decimal' }}"
+           min="{{ feature.minimum }}" max="{{ feature.maximum }}" step="{{ 1 if feature.integer else 'any' }}"
+           value="{{ value }}" required autocomplete="off"
+           aria-describedby="{{ described_by }}"{% if error %} aria-invalid="true"{% endif %}>
+    {% if feature.unit %}<span class="input-wrap__suffix" aria-hidden="true">{{ feature.unit }}</span>{% endif %}
+  </div>
+
+{% elif feature.widget == 'segmented' %}
+<div class="field" data-field="{{ feature.name }}" role="radiogroup"
+     aria-labelledby="{{ id }}-label" aria-describedby="{{ described_by }}">
+  <span class="field__label" id="{{ id }}-label">{{ feature.label }}</span>
+  <div class="segmented" data-options="{{ feature.choices | length }}"{% if error %} aria-invalid="true"{% endif %}>
+    {% for choice in feature.choices %}
+    <label class="segmented__option">
+      <input type="radio" name="{{ feature.name }}" value="{{ choice.code }}" required
+             {%- if loop.first %} id="{{ id }}"{% endif %}
+             {%- if value | string == choice.code | string %} checked{% endif %}>
+      <span>{{ choice.label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+
+{% else %}
+<div class="field" data-field="{{ feature.name }}">
+  <label class="field__label" for="{{ id }}">{{ feature.label }}</label>
+  <div class="select-wrap">
+    <select class="select" id="{{ id }}" name="{{ feature.name }}" required
+            aria-describedby="{{ described_by }}"{% if error %} aria-invalid="true"{% endif %}>
+      <option value="">Choose an option</option>
+      {% for choice in feature.choices %}
+      <option value="{{ choice.code }}"{% if value | string == choice.code | string %} selected{% endif %}>{{ choice.label }}</option>
+      {% endfor %}
+    </select>
+    {{ icon('chevron-down', 'icon--sm') }}
+  </div>
+{% endif %}
+
+  {% if feature.help %}<p class="field__help" id="{{ id }}-help">{{ feature.help }}</p>{% endif %}
+  <p class="field__error" id="{{ id }}-error"{% if not error %} hidden{% endif %}>
+    {{ icon('alert-circle', 'icon--sm') }}<span data-error-text>{{ error or '' }}</span>
+  </p>
+</div>
+{%- endmacro %}

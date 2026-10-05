@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+
+{% block title %}Upload - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% block content %}
+<div class="container page">
+    <header class="page-header">
+        <div class="page-header__text">
+            <h1 class="title" data-reveal>Score a CSV file</h1>
+            <p class="lead" data-reveal>Upload a file of applications and every row gets a verdict. The file is read, scored and discarded; nothing is kept.</p>
+        </div>
+    </header>
+
+    <div class="upload">
+        <form method="POST" action="{{ url_for('upload.preview') }}" enctype="multipart/form-data"
+              class="card upload__form" data-busy data-upload-form data-reveal
+              data-max-bytes="{{ max_megabytes * 1024 * 1024 }}" data-max-megabytes="{{ max_megabytes }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="alert alert--risk" role="alert" id="upload-error" data-upload-error{% if not error %} hidden{% endif %}>
+                {{ icon('alert-circle') }}
+                <p data-upload-error-text>{{ error or '' }}</p>
+            </div>
+
+            <label class="dropzone" data-dropzone>
+                <span class="dropzone__icon">{{ icon('upload', 'icon--lg') }}</span>
+                <span class="dropzone__title">Drop a CSV file here, or <span>browse</span></span>
+                <span class="caption">Up to {{ max_megabytes }} MB and {{ max_rows | number }} rows</span>
+                <input type="file" name="datasetfile" accept=".csv,text/csv" required aria-describedby="upload-error"{% if error %} aria-invalid="true"{% endif %}>
+            </label>
+
+            <div class="file-chip" data-file-chip hidden>
+                {{ icon('file') }}
+                <div class="file-chip__text">
+                    <span class="file-chip__name" data-file-name></span>
+                    <span class="caption" data-file-size></span>
+                </div>
+                <button type="button" class="button button--ghost button--icon button--sm" data-file-remove aria-label="Remove file">
+                    {{ icon('x', 'icon--sm') }}
+                </button>
+            </div>
+
+            <button type="submit" class="button button--lg">{{ icon('scan') }}<span>Score file</span></button>
+        </form>
+
+        <section class="card stack" aria-labelledby="needs-heading" data-reveal>
+            <h2 class="heading" id="needs-heading">What the file needs</h2>
+            <ul class="requirements plain">
+                <li>
+                    <strong>A header row with these {{ features | length }} columns</strong>
+                    <span class="column-list">
+                        {% for feature in features %}<code>{{ feature.name }}</code>{% endfor %}
+                    </span>
+                </li>
+                <li>
+                    <strong>Values as text or as codes</strong>
+                    <span>Write choices the way the dataset does, such as <code>radio/tv</code> or <code>existing paid</code>, or use the model's numeric codes.</span>
+                </li>
+                <li>
+                    <strong>A <code>{{ label_column }}</code> column is optional</strong>
+                    <span>Fill it with <code>good</code> or <code>bad</code> and the results show how often the model agrees. Any other columns are ignored.</span>
+                </li>
+            </ul>
+            {% if has_sample %}
+            <p class="small">
+                <a class="link" href="{{ url_for('upload.sample') }}" download>Download a sample file</a>
+            </p>
+            {% endif %}
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/upload.js') }}"></script>
+{% endblock %}

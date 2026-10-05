@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+
+{% block title %}Analytics - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% block content %}
+<div class="container page">
+    <header class="page-header">
+        <div class="page-header__text">
+            <h1 class="title" data-reveal>Dataset analytics</h1>
+            <p class="lead" data-reveal>The labelled applications the model learns from, and where in them the bad ones concentrate.</p>
+        </div>
+    </header>
+
+    {% if not summary %}
+    <div class="empty" data-reveal>
+        <h2 class="heading">The dataset could not be read</h2>
+        <p>Analytics are worked out from <code>data/credit_data.csv</code>. Put the file back and reload this page.</p>
+    </div>
+    {% else %}
+    {% set default = summary.dimensions | selectattr('name', 'equalto', 'over_draft') | first or summary.dimensions[0] %}
+
+    <div class="stack">
+        <section class="card balance" aria-labelledby="balance-heading" data-reveal>
+            <div class="card__titles">
+                <h2 class="heading" id="balance-heading"><span data-count="{{ summary.rows }}">{{ summary.rows | number }}</span> labelled applications</h2>
+                <p class="card__description">Each one is marked good or bad. Bad makes up {{ summary.bad_rate | percent }} of them, so a model that always answered "good" would be right {{ (1 - summary.bad_rate) | percent }} of the time.</p>
+            </div>
+            <div class="share" data-grow role="img"
+                 aria-label="{{ summary.good | number }} good, {{ summary.bad | number }} bad">
+                <span class="share__part" style="--share: {{ summary.good }}"></span>
+                <span class="share__part share__part--risk" style="--share: {{ summary.bad }}"></span>
+            </div>
+            <div class="balance__labels">
+                <p>
+                    <strong><span data-count="{{ summary.good }}">{{ summary.good | number }}</span></strong>
+                    <span class="legend__item"><span class="legend__swatch"></span>Good, {{ (1 - summary.bad_rate) | percent }}</span>
+                </p>
+                <p>
+                    <strong><span data-count="{{ summary.bad }}">{{ summary.bad | number }}</span></strong>
+                    <span class="legend__item"><span class="legend__swatch legend__swatch--risk"></span>Bad, {{ summary.bad_rate | percent }}</span>
+                </p>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="breakdown-heading" data-reveal data-breakdown>
+            <div class="card__header">
+                <div class="card__titles">
+                    <h2 class="heading" id="breakdown-heading">Bad rate by <span data-dimension-name>{{ default.label | lower }}</span></h2>
+                    <p class="card__description">The share of each group's applications that are marked bad. Small groups swing more, so every bar says how many records it stands for.</p>
+                </div>
+            </div>
+
+            <div class="chart-toolbar" data-chart-toolbar hidden>
+                <div class="field">
+                    <label class="field__label" for="dimension">Break down by</label>
+                    <div class="select-wrap">
+                        <select class="select" id="dimension" data-dimension>
+                            {% for dimension in summary.dimensions %}
+                            <option value="{{ dimension.name }}"{% if dimension.name == default.name %} selected{% endif %}>{{ dimension.label }}</option>
+                            {% endfor %}
+                        </select>
+                        {{ icon('chevron-down', 'icon--sm') }}
+                    </div>
+                </div>
+                <div class="switch" role="group" aria-label="Show as">
+                    <button type="button" class="switch__option" data-view="chart" aria-pressed="true">{{ icon('chart', 'icon--sm') }}<span>Chart</span></button>
+                    <button type="button" class="switch__option" data-view="table" aria-pressed="false">{{ icon('table', 'icon--sm') }}<span>Table</span></button>
+                </div>
+            </div>
+
+            <div class="stack stack--sm" data-view-panel="chart">
+                <div class="bars" data-bars data-reference style="--reference: {{ '%.4f' | format(summary.bad_rate / summary.rate_domain) }}">
+                    {% for row in default.rows %}
+                    <div class="bars__row" tabindex="0" style="--i:{{ loop.index0 }}"
+                         data-tip-title="{{ row.rate | percent(1) }} bad"
+                         data-tip-text="{{ row.bad | number }} of {{ row.total | number }} {{ 'record' if row.total == 1 else 'records' }}">
+                        <span class="bars__label">{{ row.label }}<small>{{ row.total | number }} {{ 'record' if row.total == 1 else 'records' }}</small></span>
+                        <span class="bars__plot">
+                            <span class="bars__bar" data-grow style="--value: {{ '%.4f' | format(row.rate / summary.rate_domain) }}"></span>
+                            <span class="bars__value">{{ row.rate | percent }}</span>
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="legend">
+                    <span class="legend__item"><span class="legend__swatch legend__swatch--risk"></span>Bad rate of the group</span>
+                    <span class="legend__item"><span class="legend__swatch legend__swatch--rule"></span>Bad rate overall, {{ summary.bad_rate | percent }}</span>
+                </p>
+            </div>
+
+            <div class="scroll-x" data-view-panel="table" tabindex="0" role="region" aria-labelledby="breakdown-heading" hidden>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col" data-table-dimension>{{ default.label }}</th>
+                            <th scope="col" class="is-number">Records</th>
+                            <th scope="col" class="is-number">Bad</th>
+                            <th scope="col" class="is-number">Bad rate</th>
+                        </tr>
+                    </thead>
+                    <tbody data-table-rows>
+                        {% for row in default.rows %}
+                        <tr>
+                            <th scope="row">{{ row.label }}</th>
+                            <td class="is-number">{{ row.total | number }}</td>
+                            <td class="is-number">{{ row.bad | number }}</td>
+                            <td class="is-number">{{ row.rate | percent(1) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script type="application/json" id="analytics-data">{{ {'domain': summary.rate_domain, 'dimensions': summary.dimensions} | tojson }}</script>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+{% endblock %}

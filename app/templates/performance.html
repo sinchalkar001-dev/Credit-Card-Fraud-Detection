@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+
+{% block title %}Performance - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{# Shares are shown as percentages; ROC AUC stays on its own 0-1 scale. #}
+{% set metrics = [
+    ('roc_auc', 'ROC AUC', 'chance a bad application outscores a good one', 1, 3),
+    ('recall', 'Recall', 'of bad applications were flagged', 100, 1),
+    ('precision', 'Precision', 'of flagged applications were bad', 100, 1),
+    ('f1', 'F1 score', 'precision and recall combined', 100, 1),
+    ('accuracy', 'Accuracy', 'of all verdicts were right', 100, 1),
+] %}
+
+{% macro figure(value, scale, decimals) -%}
+{{ '%.*f' | format(decimals, value * scale) }}{{ '%' if scale == 100 }}
+{%- endmacro %}
+
+{% macro matrix_cell(key, name, count, total, miss=false) -%}
+<div class="matrix__cell{{ ' matrix__cell--miss' if miss }}" data-cell="{{ key }}" style="--_share: {{ '%.4f' | format(count / total if total else 0) }}">
+    <span class="matrix__count" data-cell-count>{{ count | number }}</span>
+    <span class="matrix__name">{{ name }}</span>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="container page">
+    <header class="page-header">
+        <div class="page-header__text">
+            <h1 class="title" data-reveal>Model performance</h1>
+            <p class="lead" data-reveal>How the model does on applications it has never seen, where it goes wrong, and what it pays most attention to.</p>
+        </div>
+    </header>
+
+    {% if not model_info or not model_info.evaluations %}
+    <div class="empty" data-reveal>
+        <h2 class="heading">No scores have been recorded yet</h2>
+        <p>Run <code>python train_model.py</code> in the project folder. It trains the model, tests it and saves the scores this page shows.</p>
+    </div>
+    {% else %}
+    {% set serving = model_info.serving %}
+    {% set scores = model_info.evaluations[serving] %}
+    {% set test = scores.test %}
+    {% set cm = test.confusion_matrix %}
+    {% set split = model_info.split %}
+
+    <div class="stack" data-performance data-serving="{{ serving }}">
+        <section class="card method" aria-labelledby="method-heading" data-reveal>
+            <div class="cluster cluster--between">
+                <h2 class="heading" id="method-heading">How these scores were measured</h2>
+                <div class="switch" role="group" aria-label="Model shown" data-evaluations hidden>
+                    <button type="button" class="switch__option" data-evaluation="weighted" aria-pressed="true">Weighted, in use</button>
+                    <button type="button" class="switch__option" data-evaluation="unweighted" aria-pressed="false">Unweighted</button>
+                </div>
+            </div>
+            <p class="method__text">
+                {{ split.test_rows | number }} of the {{ model_info.dataset.rows | number }} applications were set aside before training,
+                keeping the same mix of good and bad, and are scored here once. The model never saw them.
+            </p>
+            <p class="method__text" data-method="weighted">
+                Bad applications are outnumbered seven to three, so in training each one counts as much as 2.33 good ones.
+                That makes the model catch more of them, at the price of more false alarms.
+            </p>
+            <p class="method__text" data-method="unweighted" hidden>
+                The same settings fitted without weights, for comparison. It is right more often overall because it leans
+                towards the larger class, and it lets more bad applications through. It is not the model in use.
+            </p>
+        </section>
+
+        <div class="stat-row" data-reveal>
+            {% for key, label, note, scale, decimals in metrics %}
+            <div class="stat">
+                <span class="stat__label">{{ label }}</span>
+                <span class="stat__value"><span data-metric="{{ key }}" data-scale="{{ scale }}" data-decimals="{{ decimals }}" data-count="{{ '%.*f' | format(decimals, test[key] * scale) }}">{{ '%.*f' | format(decimals, test[key] * scale) }}</span>{% if scale == 100 %}<small>%</small>{% endif %}</span>
+                <span class="stat__note">{{ note }}</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="split">
+            <section class="card" aria-labelledby="matrix-heading" data-reveal>
+                <div class="card__header">
+                    <div class="card__titles">
+                        <h2 class="heading" id="matrix-heading">Where the verdicts landed</h2>
+                        <p class="card__description">Every held-out application, by how it is marked and what the model said.</p>
+                    </div>
+                </div>
+                <div class="matrix-wrap">
+                    <p class="matrix-wrap__axis">The model said</p>
+                    <div class="matrix">
+                        <span class="matrix__corner"></span>
+                        <span class="matrix__head matrix__head--column">Cleared</span>
+                        <span class="matrix__head matrix__head--column">Flagged</span>
+
+                        <span class="matrix__head matrix__head--row">Good</span>
+                        {{ matrix_cell('tn', 'Rightly cleared', cm.tn, cm.tn + cm.fp) }}
+                        {{ matrix_cell('fp', 'False alarm', cm.fp, cm.tn + cm.fp, miss=true) }}
+
+                        <span class="matrix__head matrix__head--row">Bad</span>
+                        {{ matrix_cell('fn', 'Missed', cm.fn, cm.fn + cm.tp, miss=true) }}
+                        {{ matrix_cell('tp', 'Caught', cm.tp, cm.fn + cm.tp) }}
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="check-heading" data-reveal>
+                <div class="card__header">
+                    <div class="card__titles">
+                        <h2 class="heading" id="check-heading">Does it hold up?</h2>
+                        <p class="card__description">
+                            One test of {{ split.test_rows | number }} rows can be lucky. The second column repeats the measurement
+                            {{ model_info.tuning.folds }} times on the training rows, each time holding a different fifth back.
+                        </p>
+                    </div>
+                </div>
+                <div class="scroll-x">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Score</th>
+                                <th scope="col" class="is-number">Held-out test</th>
+                                <th scope="col" class="is-number">Cross-validation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key, label, note, scale, decimals in metrics %}
+                            {% set cv = scores.cross_validation[key] %}
+                            <tr>
+                                <th scope="row">{{ label }}</th>
+                                <td class="is-number" data-test="{{ key }}" data-scale="{{ scale }}" data-decimals="{{ decimals }}">{{ figure(test[key], scale, decimals) }}</td>
+                                <td class="is-number" data-cv="{{ key }}" data-scale="{{ scale }}" data-decimals="{{ decimals }}">{{ figure(cv.mean, scale, decimals) }} &plusmn; {{ '%.*f' | format(decimals, cv.std * scale) }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <th scope="row">Always answering "good"</th>
+                                <td class="is-number">{{ figure(model_info.baseline_accuracy, 100, 1) }} accuracy</td>
+                                <td class="is-number">0.500 ROC AUC</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <section class="card" aria-labelledby="importance-heading" data-reveal>
+            <div class="card__header">
+                <div class="card__titles">
+                    <h2 class="heading" id="importance-heading">What the model weighs most</h2>
+                    <p class="card__description">Each input's share of the model's decisions. The shares add up to 100%.</p>
+                </div>
+            </div>
+            {% set top = model_info.feature_importances[0].importance %}
+            <div class="bars bars--clear bars--compact bars--columns" style="--_rows: {{ (model_info.feature_importances | length + 1) // 2 }}">
+                {% for item in model_info.feature_importances %}
+                <div class="bars__row" style="--i:{{ loop.index0 }}">
+                    <span class="bars__label">{{ item.label }}</span>
+                    <span class="bars__plot">
+                        <span class="bars__bar" data-grow style="--value: {{ '%.4f' | format(item.importance / top) }}"></span>
+                        <span class="bars__value">{{ item.importance | percent(1) }}</span>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="model-heading" data-reveal>
+            <div class="card__header">
+                <div class="card__titles">
+                    <h2 class="heading" id="model-heading">The model</h2>
+                    <p class="card__description">Depth, tree count and learning rate were chosen by {{ model_info.tuning.folds }}-fold cross-validation on the training rows, by ROC AUC.</p>
+                </div>
+            </div>
+            <dl class="facts">
+                <div><dt>Algorithm</dt><dd>{{ model_info.algorithm }}</dd></div>
+                <div><dt>Decision trees</dt><dd>{{ model_info.params.n_estimators | number }}</dd></div>
+                <div><dt>Tree depth</dt><dd>{{ model_info.params.max_depth }}</dd></div>
+                <div><dt>Learning rate</dt><dd>{{ model_info.params.learning_rate }}</dd></div>
+                <div><dt>Inputs</dt><dd>{{ model_info.features | length }}</dd></div>
+                <div><dt>Labelled applications</dt><dd>{{ model_info.dataset.rows | number }}</dd></div>
+                <div><dt>Training rows</dt><dd>{{ split.train_rows | number }}</dd></div>
+                <div><dt>Held-out test rows</dt><dd>{{ split.test_rows | number }}</dd></div>
+                <div><dt>Trained</dt><dd>{{ model_info.trained_at[:10] }}</dd></div>
+                <div><dt>scikit-learn</dt><dd>{{ model_info.library_versions['scikit-learn'] }}</dd></div>
+            </dl>
+        </section>
+    </div>
+
+    <script type="application/json" id="performance-data">{{ model_info.evaluations | tojson }}</script>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/performance.js') }}"></script>
+{% endblock %}

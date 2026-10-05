@@ -1,0 +1,130 @@
+{% from 'partials/icons.html' import icon %}
+{% from 'partials/guilloche.html' import brand_mark %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}Credit Risk &amp; Fraud Detection{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+    <link href="{{ url_for('static', filename='css/tokens.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/base.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/components.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/pages.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/motion.css') }}" rel="stylesheet">
+    {# Runs before first paint: picks the theme and marks the page as scripted. #}
+    <script src="{{ url_for('static', filename='js/theme-init.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    {% set endpoint = request.endpoint or '' %}
+    {% set nav_items = [
+        ('pages.index', 'Home', 'home', ['pages.index']),
+        ('prediction.prediction', 'Predict', 'scan', ['prediction.prediction']),
+        ('upload.upload', 'Upload', 'upload', ['upload.upload', 'upload.preview']),
+        ('pages.analytics', 'Analytics', 'chart', ['pages.analytics']),
+        ('pages.performance', 'Performance', 'gauge', ['pages.performance']),
+    ] %}
+
+    <header class="site-header" data-header>
+        <div class="container site-header__inner">
+            <a class="brand" href="{{ url_for('pages.index') }}">
+                {{ brand_mark('brand__mark') }}
+                <span>Credit Risk<span class="brand__rest"> &amp; Fraud Detection</span></span>
+            </a>
+
+            <nav class="site-nav" id="site-nav" aria-label="Main">
+                <ul class="site-nav__list" role="list">
+                    {% if session.get('user_id') %}
+                        {% for target, label, glyph, matches in nav_items %}
+                        <li style="--i:{{ loop.index0 }}">
+                            <a class="nav-link" href="{{ url_for(target) }}"{% if endpoint in matches %} aria-current="page"{% endif %}>
+                                {{ icon(glyph) }}
+                                <span>{{ label }}</span>
+                                {% if endpoint in matches %}<span class="nav-link__indicator" aria-hidden="true"></span>{% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li style="--i:0">
+                            <a class="nav-link" href="{{ url_for('pages.index') }}"{% if endpoint == 'pages.index' %} aria-current="page"{% endif %}>
+                                {{ icon('home') }}
+                                <span>Home</span>
+                                {% if endpoint == 'pages.index' %}<span class="nav-link__indicator" aria-hidden="true"></span>{% endif %}
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+
+                <div class="site-nav__account" style="--i:5">
+                    {% if session.get('user_id') %}
+                        <span class="account">{{ icon('user', 'icon--sm') }}<span class="sr-only">Signed in as</span> {{ session.user_id }}</span>
+                        <form method="POST" action="{{ url_for('auth.logout') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button button--ghost button--sm">{{ icon('log-out', 'icon--sm') }}<span>Sign out</span></button>
+                        </form>
+                    {% elif endpoint != 'auth.login' %}
+                        <a class="button button--secondary button--sm" href="{{ url_for('auth.login') }}">{{ icon('log-in', 'icon--sm') }}<span>Sign in</span></a>
+                    {% endif %}
+                </div>
+            </nav>
+
+            <div class="site-header__tools">
+                <button type="button" class="button button--ghost button--icon theme-toggle" data-theme-toggle aria-label="Use dark theme" hidden>
+                    {{ icon('sun', 'theme-toggle__sun') }}
+                    {{ icon('moon', 'theme-toggle__moon') }}
+                </button>
+                <button type="button" class="button button--ghost button--icon menu-toggle" data-menu-toggle aria-label="Menu" aria-expanded="false" aria-controls="site-nav">
+                    {{ icon('menu', 'when-off') }}
+                    {{ icon('x', 'when-on') }}
+                </button>
+            </div>
+        </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="toast-region" data-toasts>
+        {% for category, message in messages %}
+        <div class="toast toast--{{ category }}" data-toast>
+            {{ icon({'success': 'check-circle', 'danger': 'alert-circle', 'warning': 'alert'}.get(category, 'info')) }}
+            <p class="toast__message">{{ message }}</p>
+            <button type="button" class="toast__close" data-toast-close aria-label="Dismiss message" hidden>{{ icon('x', 'icon--sm') }}</button>
+            <span class="toast__timer" aria-hidden="true"></span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="sr-only" role="status" aria-live="polite" data-announcer></div>
+    {% endwith %}
+
+    <main id="main" tabindex="-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container site-footer__inner">
+            <p>&copy; {{ current_year }} Credit Risk &amp; Fraud Detection System</p>
+            <p>Scores come from a statistical model. Treat a flag as a reason to look closer, not as proof.</p>
+        </div>
+    </footer>
+
+    {# Worn-ink edge for stamps. Referenced from CSS as url('#stamp-ink'). #}
+    <svg width="0" height="0" class="sr-only" aria-hidden="true" focusable="false">
+        <defs>
+            <filter id="stamp-ink" x="-5%" y="-10%" width="110%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" seed="11" result="grain"/>
+                <feDisplacementMap in="SourceGraphic" in2="grain" scale="1.4" xChannelSelector="R" yChannelSelector="G" result="rough"/>
+                <feComponentTransfer in="grain" result="wear">
+                    <feFuncA type="discrete" tableValues="1 1 1 1 1 1 0.55 0.15"/>
+                </feComponentTransfer>
+                <feComposite in="rough" in2="wear" operator="in"/>
+            </filter>
+        </defs>
+    </svg>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

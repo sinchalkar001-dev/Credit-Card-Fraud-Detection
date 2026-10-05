@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% from 'partials/icons.html' import icon %}
+{% from 'partials/guilloche.html' import rosette %}
+
+{% block title %}Home - Credit Risk &amp; Fraud Detection{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="container hero__inner">
+        <div class="hero__copy">
+            <h1 class="display" data-reveal>Catch the application that doesn't add up.</h1>
+            <p class="lead" data-reveal>
+                Enter twenty details about a credit application and a gradient boosting model,
+                trained on {{ (summary.rows | number) if summary else 'labelled' }} labelled records,
+                gives it a risk score and flags the ones that look bad.
+            </p>
+            <div class="hero__actions" data-reveal>
+                {% if session.get('user_id') %}
+                    <a href="{{ url_for('prediction.prediction') }}" class="button button--lg">
+                        {{ icon('scan') }}<span>Check an application</span>
+                    </a>
+                    <a href="{{ url_for('upload.upload') }}" class="button button--secondary button--lg">
+                        {{ icon('upload') }}<span>Score a CSV file</span>
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="button button--lg">
+                        {{ icon('log-in') }}<span>Sign in to start</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Illustration: four records of the dataset with the verdict the model gives each. Decorative. #}
+        <div class="hero__visual" data-inspection aria-hidden="true">
+            {{ rosette('hero__rosette', draw=true) }}
+
+            <div class="paycard">
+                <svg class="paycard__engraving" viewBox="-250 -250 500 500" fill="none" focusable="false">
+                    <use href="#guilloche-outer"/>
+                </svg>
+                <span class="paycard__chip"></span>
+                <span class="paycard__number">4000 &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; 4870</span>
+                <span class="paycard__meta"><span>Cardholder</span><span>09/28</span></span>
+            </div>
+
+            <div class="ledger">
+                <div class="ledger__head"><span>Purpose</span><span>Balance</span><span></span></div>
+                <div class="ledger__row" style="--i:0">
+                    <span class="ledger__purpose">Radio or TV</span>
+                    <span class="ledger__amount">1,169</span>
+                    <span class="ledger__verdict" style="--i:0">{{ icon('check') }}</span>
+                </div>
+                <div class="ledger__row" style="--i:1">
+                    <span class="ledger__purpose">Education</span>
+                    <span class="ledger__amount">2,096</span>
+                    <span class="ledger__verdict" style="--i:1">{{ icon('check') }}</span>
+                </div>
+                <div class="ledger__row ledger__row--risk" style="--i:2">
+                    <span class="ledger__purpose">New car</span>
+                    <span class="ledger__amount">4,870</span>
+                    <span class="ledger__verdict"><span class="stamp stamp--risk stamp--sm">Flagged</span></span>
+                </div>
+                <div class="ledger__row" style="--i:3">
+                    <span class="ledger__purpose">Furniture or equipment</span>
+                    <span class="ledger__amount">2,835</span>
+                    <span class="ledger__verdict" style="--i:2">{{ icon('check') }}</span>
+                </div>
+                <span class="ledger__beam"></span>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if summary %}
+<section class="section">
+    <div class="container">
+        <div class="stat-row" data-reveal>
+            <div class="stat">
+                <span class="stat__label">Labelled applications</span>
+                <span class="stat__value" data-count="{{ summary.rows }}">{{ summary.rows | number }}</span>
+                <span class="stat__note">the model learns from</span>
+            </div>
+            <div class="stat">
+                <span class="stat__label">Marked bad</span>
+                <span class="stat__value" data-count="{{ summary.bad }}">{{ summary.bad | number }}</span>
+                <span class="stat__note">{{ summary.bad_rate | percent }} of all records</span>
+            </div>
+            <div class="stat">
+                <span class="stat__label">Details per check</span>
+                <span class="stat__value" data-count="{{ summary.dimensions | length }}">{{ summary.dimensions | length }}</span>
+                <span class="stat__note">about the credit and the applicant</span>
+            </div>
+            {% if model_info %}
+            <div class="stat">
+                <span class="stat__label">Decision trees</span>
+                <span class="stat__value" data-count="{{ model_info.params.n_estimators }}">{{ model_info.params.n_estimators | number }}</span>
+                <span class="stat__note">each correcting the one before</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="section">
+    <div class="container">
+        <div class="section__header" data-reveal>
+            <h2 class="title">What you can do here</h2>
+            {% if not session.get('user_id') %}
+            <p class="lead">Each of these asks you to sign in first.</p>
+            {% endif %}
+        </div>
+        <div class="jobs" data-reveal>
+            <article class="job">
+                {{ icon('scan', 'job__icon icon--lg') }}
+                <h3 class="job__title"><a href="{{ url_for('prediction.prediction') }}">Check one application</a></h3>
+                <p class="job__text">Fill in twenty details and get a verdict with the model's risk score.</p>
+            </article>
+            <article class="job">
+                {{ icon('upload', 'job__icon icon--lg') }}
+                <h3 class="job__title"><a href="{{ url_for('upload.upload') }}">Score a whole file</a></h3>
+                <p class="job__text">Upload a CSV and every row gets a verdict. The riskiest rows are listed first.</p>
+            </article>
+            <article class="job">
+                {{ icon('chart', 'job__icon icon--lg') }}
+                <h3 class="job__title"><a href="{{ url_for('pages.analytics') }}">See where risk concentrates</a></h3>
+                <p class="job__text">Bad rates across the labelled records, broken down by any of the model's inputs.</p>
+            </article>
+            <article class="job">
+                {{ icon('gauge', 'job__icon icon--lg') }}
+                <h3 class="job__title"><a href="{{ url_for('pages.performance') }}">Judge how far to trust it</a></h3>
+                <p class="job__text">Scores on applications the model has never seen, with every miss counted.</p>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='js/home.js') }}"></script>
+{% endblock %}
