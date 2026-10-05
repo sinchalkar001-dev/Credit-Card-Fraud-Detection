@@ -1,0 +1,25 @@
+# Keep the build context to what the image needs.
+.git
+.gitignore
+.dockerignore
+.vscode
+.idea
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Rebuilt inside the image
+model/
+logs/
+
+# Not used at runtime
+tests/
+docs/
+design-system/
+tools/
+.env
+.env.*
+!.env.example

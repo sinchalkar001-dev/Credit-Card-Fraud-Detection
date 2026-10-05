@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    container_name: credit-risk-fraud-detection
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: production
+      # Set these in a .env file next to this one, or in your shell, before going live.
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      # The container serves plain HTTP. Set to True once it sits behind HTTPS.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-False}
+    restart: unless-stopped
